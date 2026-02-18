@@ -49,8 +49,9 @@ WORKDIR /app
 
 # Verification Script
 RUN python3 -c "import torch; import monarch; \
+    from importlib.metadata import version; \
     print(f'PyTorch: {torch.__version__}'); \
-    print(f'Monarch: {monarch.__version__}'); \
+    print(f'Monarch: {version(\"torchmonarch\")}'); \
     print('Status: CPU Environment Ready')"
 
 CMD ["python3"]
