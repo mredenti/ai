@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  ai:
+    container_name: ai
+    image: ghcr.io/mredenti/ai:latest
+    environment:
+      - OMP_NUM_THREADS=4
+      - PYTHONPATH=/usr/local/lib/python3.11/site-packages
+    privileged: true
+    volumes:
+      - ..:/app
+    command: sleep infinity

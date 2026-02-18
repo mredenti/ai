@@ -30,7 +30,7 @@ RUN pip install --no-cache-dir \
 
 # 2. Install Pinned Monarch (CPU-Only Mode)
 # Setting USE_TENSOR_ENGINE=0 disables the RDMA/GPU-heavy components
-ENV USE_TENSOR_ENGINE=0
+ENV USE_TENSOR_ENGINE=0 uv sync
 RUN pip install --no-cache-dir torchmonarch==${MONARCH_VERSION}
 
 # --- Stage 2: Runtime Environment ---
