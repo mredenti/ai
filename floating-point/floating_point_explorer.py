@@ -1,6 +1,15 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = [
+#     "marimo>=0.19.10",
+#     "pyzmq>=27.1.0",
+#     "numpy",
+# ]
+# ///
+
 import marimo
 
-__generated_with = "0.1.0"
+__generated_with = "0.19.11"
 app = marimo.App(width="full")
 
 
@@ -8,41 +17,32 @@ app = marimo.App(width="full")
 def imports():
     import marimo as mo
     import struct
+    import numpy as np
     from decimal import Decimal
-    return mo, struct, Decimal
+
+    return Decimal, mo, np, struct
 
 
 @app.cell
 def header(mo):
-    mo.md(
-        """
-        # 🧮 Demystifying Floating-Point Arithmetic
-        
-        Welcome! If you've ever typed `0.1 + 0.2` into a programming language and gotten `0.30000000000000004`, you've encountered the quirks of **floating-point arithmetic**. 
-        
-        Computers don't have infinite memory. They use a standard called **IEEE 754** to squeeze infinitely complex real numbers into a fixed number of binary bits (1s and 0s). This process is basically scientific notation for computers:
-        
-        $$ \text{Number} = (-1)^{\text{Sign}} \times 1.\text{Mantissa} \times 2^{\text{Exponent}} $$
-        
-        
+    # Because there is no 'return' statement here, Marimo will display this Markdown!
+    mo.md("""
+    # 🧮 Demystifying Floating-Point Arithmetic
 
-        ### The Anatomy of a Float
-        * 🟥 **Sign Bit:** 1 bit to say if the number is positive (0) or negative (1).
-        * 🟩 **Exponent:** Determines where the "floating" decimal point sits (the scale).
-        * ⬜ **Implicit Bit:** Because binary scientific notation *always* starts with "1.", we don't even store it! We just assume it's there to save space.
-        * 🟦 **Mantissa (Significand):** The actual precision digits of the number.
-        """
-    )
-    return
+    Welcome! If you've ever typed `0.1 + 0.2` into a programming language and gotten `0.30000000000000004`, you've encountered the quirks of **floating-point arithmetic**.
 
+    Computers don't have infinite memory. They use a standard called **IEEE 754** to squeeze infinitely complex real numbers into a fixed number of binary bits (1s and 0s). This process is basically scientific notation for computers:
 
-@app.cell
-def interactive_input(mo):
-    mo.md("### 🧪 Try it yourself! \nEnter a decimal number below. Try `0.1`, `3.14159`, or a whole number like `42` to see how the computer slices it up.")
+    $$ \\text{Number} = (-1)^{\\text{Sign}} \\times 1.\\text{Mantissa} \\times 2^{\\text{Exponent}} $$
+
     
-    number_input = mo.ui.text(value="0.1", label="**Enter a Real Number:**")
-    number_input
-    return number_input,
+
+    ### The Anatomy of a Float
+    * 🟥 **Sign Bit:** 1 bit to say if the number is positive (0) or negative (1).
+    * 🟩 **Exponent:** Determines where the "floating" decimal point sits (the scale).
+    * ⬜ **Implicit Bit:** Because binary scientific notation *always* starts with "1.", we don't even store it! We just assume it's there to save space.
+    * 🟦 **Mantissa (Significand):** The actual precision digits of the number.
+    """)
 
 
 @app.cell
@@ -74,7 +74,7 @@ def bit_helpers(struct):
                 return bits[0], bits[1:6], bits[6:]
             except OverflowError:
                 return "0", "11111", "0000000000" # Inf
-    
+
     def decode_truncated(f, format_type):
         """Recalculates the exact decimal value of truncated formats."""
         if format_type == "FP64": return f
@@ -93,18 +93,41 @@ def bit_helpers(struct):
             try: return struct.unpack('>e', struct.pack('>e', f))[0]
             except: return float('inf')
 
-    return bit_box, float_to_bits, decode_truncated
+    # This cell has logic that other cells need, so we return them!
+    return bit_box, decode_truncated, float_to_bits
 
 
 @app.cell
-def visualization_grid(mo, number_input, bit_box, float_to_bits, decode_truncated, Decimal):
-    try:
-        val = float(number_input.value)
-        valid_input = True
-    except ValueError:
-        valid_input = False
+def create_input(mo):
+    number_input = mo.ui.number(value=0.1, step=0.1, label="**Enter a Real Number:**")
+    # Return it so the next cells can use it
+    return number_input,
 
-    if valid_input:
+
+@app.cell
+def display_input(mo, number_input):
+    # This renders the text and the input box onto the screen
+    mo.vstack([
+        mo.md("### 🧪 1. The Representation Explorer\nType `0.1`, `3.14159`, or `42` below to instantly see how the computer slices it up."),
+        number_input
+    ])
+
+
+@app.cell
+def display_grid(Decimal, bit_box, decode_truncated, float_to_bits, mo, number_input):
+    # This cell automatically re-runs whenever number_input.value changes!
+    val_str = number_input.value
+    
+    try:
+        val = float(val_str)
+        valid_input = True
+    except (ValueError, TypeError):
+        valid_input = False
+        val = 0.0
+
+    if not valid_input:
+        grid_output = mo.md("⚠️ **Please enter a valid decimal number.**")
+    else:
         formats = [
             ("FP64 (Double Precision)", "FP64", "The gold standard for scientific computing. Huge range, massive precision."),
             ("FP32 (Single Precision)", "FP32", "Standard for most 3D graphics and basic machine learning."),
@@ -112,57 +135,126 @@ def visualization_grid(mo, number_input, bit_box, float_to_bits, decode_truncate
             ("BF16 (Bfloat16)", "BF16", "Brain Float: Chops FP32 in half. Prevents overflow in deep learning."),
             ("FP16 (Half Precision)", "FP16", "Smaller exponent, easily overflows, but very fast for AI inference.")
         ]
-        
+
         grid_rows = []
         for name, fmt, desc in formats:
             s, e, m = float_to_bits(val, fmt)
             stored_val = decode_truncated(val, fmt)
-            
-            # Format the bits visually
+
             html_out = [bit_box(s, "sign"), "<span style='margin:0 4px; color:#bbb;'>|</span>"]
             for b in e: html_out.append(bit_box(b, "exponent"))
             html_out.append("<span style='margin:0 4px; color:#bbb;'>|</span>")
             html_out.append(bit_box("1", "implicit") + "<span style='font-weight:bold;'>.</span>")
             for b in m: html_out.append(bit_box(b, "mantissa"))
-            
-            # Show rounding error details
+
             error = abs(Decimal(str(val)) - Decimal(str(stored_val)))
             error_text = f"<div style='font-size: 13px; color: #555; margin-top: 5px;'><b>Stored Value:</b> {stored_val:.10g}... <br><b>Rounding Error:</b> ~{error:.2e}</div>"
-            
-            grid_rows.append([
+
+            row = mo.hstack([
                 mo.md(f"**{name}**<br><span style='font-size:12px; color:#666;'>{desc}</span>"),
                 mo.Html("".join(html_out) + error_text)
-            ])
-            
-        display_output = mo.ui.table(grid_rows, selection=None)
-    else:
-        display_output = mo.md("⚠️ **Please enter a valid decimal number.**")
+            ], widths=[1, 2], align="center")
 
-    display_output
-    return display_output, val, valid_input
+            grid_rows.append(row)
+            grid_rows.append(mo.Html("<hr style='margin: 10px 0; border: 0; border-top: 1px solid #eee;'>"))
+
+        grid_output = mo.vstack(grid_rows)
+        
+    # By leaving the variable at the end of the cell without a 'return', Marimo paints it to the screen!
+    grid_output
+
+
+@app.cell
+def goldberg_quirks(mo):
+    
+    
+    mo.md("""
+    ---
+    ## 💥 Goldberg's Quirks: Catastrophic Cancellation
+
+    David Goldberg's paper highlights that mathematically equivalent formulas can produce drastically different results on a computer due to **Catastrophic Cancellation**.
+
+    When two nearby numbers (which already have slight rounding errors) are subtracted, the most significant digits match and cancel each other out, leaving behind only the digits contaminated by rounding error.
+
+    Let's test the famous $x^2 - y^2$ example.
+    Algebra tells us that $x^2 - y^2 = (x - y)(x + y)$. But watch what happens in single-precision (FP32) floating point when $x$ and $y$ are close!
+    """)
+
+
+@app.cell
+def create_catastrophic_inputs(mo):
+    x_input = mo.ui.number(value=10000.1, step=0.1, label="**Value for X:**")
+    y_input = mo.ui.number(value=10000.0, step=0.1, label="**Value for Y:**")
+    
+    return x_input, y_input
+
+
+@app.cell
+def display_catastrophic_inputs(mo, x_input, y_input):
+    # Paints the X and Y boxes to the screen side-by-side
+    mo.hstack([x_input, y_input])
+
+
+@app.cell
+def display_catastrophic_results(mo, np, x_input, y_input):
+    x_val = x_input.value
+    y_val = y_input.value
+    
+    x_fp32 = np.float32(x_val)
+    y_fp32 = np.float32(y_val)
+
+    # Method 1: The Naive way (Catastrophic Cancellation)
+    x_sq = x_fp32 * x_fp32
+    y_sq = y_fp32 * y_fp32
+    result_bad = x_sq - y_sq
+
+    # Method 2: The Safe way (Benign Cancellation)
+    diff = x_fp32 - y_fp32
+    summ = x_fp32 + y_fp32
+    result_good = diff * summ
+
+    # Exact True Value (using higher precision for reference)
+    true_val = (np.float64(x_val)**2) - (np.float64(y_val)**2)
+
+    # Final expression: Prints the result text!
+    mo.md(f"""
+    **The Math (in Single Precision FP32):**
+    * $X$ is stored as: `{x_fp32:.7f}`
+    * $Y$ is stored as: `{y_fp32:.7f}`
+
+    **Method 1: Evaluating $X^2 - Y^2$ (The Bad Way)**
+    * $X^2$ rounds to: `{x_sq}`
+    * $Y^2$ rounds to: `{y_sq}`
+    * Result ($X^2 - Y^2$): <span style='color:red; font-size: 1.2em; font-weight:bold;'>{result_bad}</span> ❌ *(The lower decimals got wiped out!)*
+
+    **Method 2: Evaluating $(X - Y)(X + Y)$ (The Good Way)**
+    * $(X - Y)$ evaluates cleanly to: `{diff}`
+    * $(X + Y)$ evaluates to: `{summ}`
+    * Result: <span style='color:green; font-size: 1.2em; font-weight:bold;'>{result_good}</span> ✅ *(Precision is preserved!)*
+
+    *(For reference, the exact true math is: `{true_val}`)*
+    """)
 
 
 @app.cell
 def a100_explanation(mo):
-    mo.md(
-        """
-        ---
-        ## 🧠 Why did NVIDIA invent TF32 for the A100?
-        
-        Look closely at the grid above, specifically comparing **FP32**, **TF32**, and **BF16**. 
-        
-        
+    mo.md("""
+    ---
+    ## 🧠 Why did NVIDIA invent TF32 for the A100?
 
-        When training neural networks, researchers realized two things:
-        1. **Deep Learning needs a large range:** If the Exponent (🟩) is too small (like in standard **FP16**), gradients vanish or explode to `Infinity`. 
-        2. **Deep Learning doesn't need perfect precision:** The neural network acts like a noisy biological brain; it can tolerate slight errors in the Mantissa (🟦).
+    Look closely at the grid in the first section, specifically comparing **FP32**, **TF32**, and **BF16**.
 
-        **The A100 Tensor Core Solution:**
-        * **BF16 (Brain Float):** Literally takes standard FP32 and just chops off the last 16 bits of the Mantissa. It keeps the exact same 8-bit Exponent for range but uses less memory.
-        * **TF32 (TensorFloat-32):** NVIDIA's special hybrid. It uses an 8-bit Exponent (like FP32) to prevent `Infinity` crashes, but provides a 10-bit Mantissa (like FP16) to retain a bit more precision than BF16. It mathematically runs on hardware as a 19-bit format, massively speeding up matrix multiplication!
-        """
-    )
-    return
+    
+
+    When training neural networks, researchers realized two things:
+    1. **Deep Learning needs a large range:** If the Exponent (🟩) is too small (like in standard **FP16**), gradients vanish or explode to `Infinity`.
+    2. **Deep Learning doesn't need perfect precision:** The neural network acts like a noisy biological brain; it can tolerate slight errors in the Mantissa (🟦).
+
+    **The A100 Tensor Core Solution:**
+    * **BF16 (Brain Float):** Literally takes standard FP32 and just chops off the last 16 bits of the Mantissa. It keeps the exact same 8-bit Exponent for range but uses less memory.
+    * **TF32 (TensorFloat-32):** NVIDIA's special hybrid. It uses an 8-bit Exponent (like FP32) to prevent `Infinity` crashes, but provides a 10-bit Mantissa (like FP16) to retain a bit more precision than BF16. It mathematically runs on hardware as a 19-bit format, massively speeding up matrix multiplication!
+    """)
+
 
 if __name__ == "__main__":
     app.run()
