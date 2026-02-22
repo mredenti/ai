@@ -118,19 +118,31 @@ def pythonic_fp_engine(Decimal, dataclass, struct):
         Object-oriented wrapper that parses a float into bits and 
         utilizes the _repr_html_ protocol to intrinsically render itself.
         """
-        def __init__(self, value: float, config: FPFormatConfig):
-            self.value = value
+        def __init__(self, value_str: str, config: FPFormatConfig):
             self.config = config
+            self.value_str = value_str.strip()
+            
+            # Parse the string into an exact mathematical decimal FIRST
+            self.exact_decimal = Decimal(self.value_str)
+            self.value = float(self.value_str)
+            
             self.sign, self.exponent, self.mantissa = self._extract_bits()
-            self.stored_value = self._calculate_stored_value()
-            self.error = abs(Decimal(str(self.value)) - Decimal(str(self.stored_value)))
+            self.stored_value_float = self._calculate_stored_value()
+            
+            # Check for Overflow/Infinity
+            if self.stored_value_float == float('inf') or self.stored_value_float == float('-inf'):
+                self.stored_decimal = None
+                self.error = None
+            else:
+                # Passing a float directly to Decimal() reveals its EXACT base-10 value in memory!
+                self.stored_decimal = Decimal(self.stored_value_float)
+                self.error = abs(self.exact_decimal - self.stored_decimal)
 
         def _extract_bits(self) -> tuple[str, str, str]:
             try:
                 b_bytes = struct.pack(f'>{self.config.struct_char}', self.value)
                 bits = ''.join(f'{b:08b}' for b in b_bytes)
             except OverflowError:
-                # Handle standard Infinity overflow for FP16
                 bits = '0' + '1' * self.config.exp_bits + '0' * self.config.mantissa_bits
 
             if self.config.truncate_to:
@@ -185,7 +197,6 @@ def pythonic_fp_engine(Decimal, dataclass, struct):
                 
                 boxes = []
                 for i, bit in enumerate(bit_str):
-                    # Construct rich HTML Tooltip Text based on the bit's role
                     if role == "mantissa":
                         power = -(i + 1)
                         dec_val = 2 ** power
@@ -212,12 +223,10 @@ def pythonic_fp_engine(Decimal, dataclass, struct):
                     )
                 return "".join(boxes)
 
-            # Evaluate the mathematical components
             sign_int = int(self.sign)
             exp_int = int(self.exponent, 2)
             mantissa_fraction = sum(int(bit) * (2 ** -(i + 1)) for i, bit in enumerate(self.mantissa))
             
-            # Determine the implicit bit based on whether it is a normal or subnormal number
             implicit_bit = "0" if exp_int == 0 else "1"
             
             if exp_int == 0:
@@ -236,7 +245,22 @@ def pythonic_fp_engine(Decimal, dataclass, struct):
                 significand = 1.0 + mantissa_fraction
                 math_str = f"(-1)<sup>{sign_int}</sup> &times; {significand:.6g} &times; 2<sup>{true_exp}</sup>"
 
-            # Clean Flexbox Dashboard
+            # Format the perfectly exact stored value to show hidden precision errors
+            if self.stored_decimal is not None:
+                stored_str = str(self.stored_decimal)
+                if len(stored_str) > 28:
+                    display_stored = stored_str[:28] + "..."
+                else:
+                    display_stored = stored_str
+                
+                if self.error == 0:
+                    error_str = "<span style='color: green;'>0 (Exact Match)</span>"
+                else:
+                    error_str = f"~{self.error:.2e}"
+            else:
+                display_stored = "+&infin;" if self.sign == '0' else "-&infin;"
+                error_str = "Overflow"
+
             html_elements = [
                 style_block,
                 "<div style='display: flex; flex-direction: column; gap: 8px; width: 100%;'>",
@@ -249,9 +273,9 @@ def pythonic_fp_engine(Decimal, dataclass, struct):
                 draw_box(self.mantissa, "mantissa"),
                 "</div>",
                 "<div style='display: flex; gap: 20px; font-size: 13px; color: #555; border-top: 1px dashed #ddd; padding-top: 8px;'>",
-                "<div style='flex: 1;'>",
-                f"<b>Stored Value:</b> {self.stored_value:.10g}... <br>",
-                f"<b>Rounding Error:</b> ~{self.error:.2e}",
+                "<div style='flex: 1; overflow: hidden;'>",
+                f"<b>Stored Value:</b> {display_stored} <br>",
+                f"<b>Rounding Error:</b> {error_str}",
                 "</div>",
                 "<div style='flex: 1; border-left: 1px dashed #eee; padding-left: 15px; display: flex; align-items: center;'>",
                 f"<span style='font-size: 14px; color: #222; font-family: \"Times New Roman\", Times, serif;'>",
@@ -279,7 +303,9 @@ def define_configs(FPFormatConfig):
 
 @app.cell
 def create_explorer_input(mo):
-    number_input = mo.ui.number(value=0.1, step=0.1, label="**Enter a Real Number:**")
+    # Using a text box instead of a number box prevents the browser from 
+    # auto-rounding the user's input before it reaches the Python backend!
+    number_input = mo.ui.text(value="0.1", label="**Enter a Real Number:**")
     return number_input,
 
 
@@ -293,19 +319,19 @@ def display_explorer_input(mo, number_input):
 
 @app.cell
 def display_reactive_grid(FloatParser, SUPPORTED_FORMATS, mo, number_input):
+    val_str = number_input.value
     try:
-        current_val = float(number_input.value)
+        float(val_str)
         is_valid = True
     except (ValueError, TypeError):
         is_valid = False
-        current_val = 0.0
 
     if not is_valid:
         grid_ui = mo.md("⚠️ **Please enter a valid decimal number.**")
     else:
         rows = []
         for config in SUPPORTED_FORMATS:
-            fp_object = FloatParser(current_val, config)
+            fp_object = FloatParser(val_str, config)
             row = mo.hstack([
                 mo.md(f"**{config.name}**<br><span style='font-size:12px; color:#666;'>{config.desc}</span>"),
                 fp_object
