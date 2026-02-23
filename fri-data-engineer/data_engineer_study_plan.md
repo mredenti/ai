@@ -9,3 +9,6 @@ https://gemini.google.com/share/81dd936dcfbe
 
 
 https://big-data-platforms-22.mooc.fi/
+
+
+https://github.com/mredenti/data-engineering-zoomcamp/blob/main/awesome-data-engineering.md
