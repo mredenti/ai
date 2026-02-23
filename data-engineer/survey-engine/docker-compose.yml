@@ -1,0 +1,28 @@
+version: '3.8'
+services:
+  warehouse:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - ./init-db:/docker-entrypoint-initdb.d  # ⬅️ Add this line
+    ports:
+      - "5432:5432"
+
+  engine:
+    build: ./elt_pipeline
+    working_dir: /app
+    volumes:
+      - ./elt_pipeline:/app
+      - ./data:/raw_data
+    environment:
+      # We pass these same variables into the Python container 🐍
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=warehouse
+    depends_on:
+      - warehouse
+    command: python ingest.py

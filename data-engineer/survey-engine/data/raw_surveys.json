@@ -1,0 +1,14 @@
+[
+  {
+    "id": "R_001",
+    "metadata": {"age": 28, "loc": "New York"},
+    "responses": {"q1": "Agree", "q2": 4}
+  },
+  {
+    "respondent_id": "R_002",
+    "age": 45,
+    "location": "London",
+    "answers": {"q1": "Disagree", "q2": 2},
+    "ts": "2023-10-27T10:00:00"
+  }
+]
