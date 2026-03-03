@@ -1,14 +1,13 @@
 {
-  "name": "PyTorch Monarch",
-  "dockerComposeFile": "../docker-compose.yml",
-  "service": "ai",
-  "workspaceFolder": "/app",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "ms-python.vscode-pylance"
-      ]
-    }
-  }
+    "name": "PyTorch-Monarch-Privileged",
+    "dockerComposeFile": "../docker-compose.yml",
+    "service": "ai",
+    "workspaceFolder": "/app",
+    "features": {}, 
+    "customizations": {
+        "vscode": {
+            "extensions": ["ms-python.python", "ms-python.vscode-pylance"]
+        }
+    },
+    "remoteUser": "root"
 }

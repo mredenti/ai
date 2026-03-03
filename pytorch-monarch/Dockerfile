@@ -4,6 +4,7 @@ FROM python:3.11-slim AS builder
 # Pinned Versions
 ARG PYTORCH_VERSION=2.10.0
 ARG MONARCH_VERSION=0.3.0
+ARG TORCHTITAN_REPO=https://github.com/pytorch/torchtitan.git
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -33,6 +34,9 @@ RUN pip install --no-cache-dir \
 ENV USE_TENSOR_ENGINE=0
 RUN pip install --no-cache-dir torchmonarch==${MONARCH_VERSION}
 
+# Install TorchTitan (CPU Compatible)
+RUN pip install --no-cache-dir git+${TORCHTITAN_REPO}
+
 # --- Stage 2: Runtime Environment ---
 FROM python:3.11-slim AS runtime
 
@@ -48,10 +52,11 @@ ENV MKL_NUM_THREADS=4
 WORKDIR /app
 
 # Verification Script
-RUN python3 -c "import torch; import monarch; \
+RUN python3 -c "import torch; \
+    import torchtitan; \
     from importlib.metadata import version; \
     print(f'PyTorch: {torch.__version__}'); \
-    print(f'Monarch: {version(\"torchmonarch\")}'); \
+    print(f'TorchTitan: {version(\"torchtitan\")}'); \
     print('Status: CPU Environment Ready')"
-
+    
 CMD ["python3"]
