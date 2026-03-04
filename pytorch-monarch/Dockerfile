@@ -37,6 +37,9 @@ RUN pip install --no-cache-dir torchmonarch==${MONARCH_VERSION}
 # Install TorchTitan (CPU Compatible)
 RUN pip install --no-cache-dir git+${TORCHTITAN_REPO}
 
+# 3. ML utilities
+RUN pip install --no-cache-dir einops jaxtyping
+
 # --- Stage 2: Runtime Environment ---
 FROM python:3.11-slim AS runtime
 
@@ -54,9 +57,12 @@ WORKDIR /app
 # Verification Script
 RUN python3 -c "import torch; \
     import torchtitan; \
+    import einops; \
+    import jaxtyping; \
     from importlib.metadata import version; \
     print(f'PyTorch: {torch.__version__}'); \
     print(f'TorchTitan: {version(\"torchtitan\")}'); \
+    print(f'einops: {version(\"einops\")}'); \
     print('Status: CPU Environment Ready')"
     
 CMD ["python3"]
