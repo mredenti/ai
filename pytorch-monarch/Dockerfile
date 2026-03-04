@@ -38,7 +38,7 @@ RUN pip install --no-cache-dir torchmonarch==${MONARCH_VERSION}
 RUN pip install --no-cache-dir git+${TORCHTITAN_REPO}
 
 # 3. ML utilities
-RUN pip install --no-cache-dir einops jaxtyping
+RUN pip install --no-cache-dir einops jaxtyping plotly
 
 # --- Stage 2: Runtime Environment ---
 FROM python:3.11-slim AS runtime
@@ -59,10 +59,12 @@ RUN python3 -c "import torch; \
     import torchtitan; \
     import einops; \
     import jaxtyping; \
+    import plotly; \
     from importlib.metadata import version; \
     print(f'PyTorch: {torch.__version__}'); \
     print(f'TorchTitan: {version(\"torchtitan\")}'); \
     print(f'einops: {version(\"einops\")}'); \
+    print(f'plotly: {version(\"plotly\")}'); \
     print('Status: CPU Environment Ready')"
     
 CMD ["python3"]
