@@ -38,7 +38,7 @@ RUN pip install --no-cache-dir torchmonarch==${MONARCH_VERSION}
 RUN pip install --no-cache-dir git+${TORCHTITAN_REPO}
 
 # 3. ML utilities
-RUN pip install --no-cache-dir einops jaxtyping plotly ipykernel
+RUN pip install --no-cache-dir einops jaxtyping plotly ipykernel jupyterlab nbformat
 
 # --- Stage 2: Runtime Environment ---
 FROM python:3.11-slim AS runtime
