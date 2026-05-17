@@ -1,19 +1,42 @@
 from monarch.actor import Actor, endpoint, this_host
 
 # spawn 2 trainer processes one for each cpu
-training_procs = this_host().spawn_procs({"cpus" : 2})
+procs = this_host().spawn_procs({"cpus" : 32})
 
-# define the actor to run on each process 
-class Trainer(Actor):
+print("-" * 40)
+for key, val in procs.__dict__.items():
+    print(f"{key} ---> {val}")
+print("-" * 40)
+
+# define the actor that has two methods
+
+class Example(Actor):
     @endpoint 
-    def train(self, step: int): ...
+    def say_hello(self, txt):
+        return f"hello {txt}"
+    
+    @endpoint
+    def say_bye(self, txt):
+        raise Exception("saying bye is hard")
 
 
-# create the trainers 
-trainers = training_procs.spawn("trainers", Trainer)
+# spawn the actors 
+actors = procs.spawn("actors", Example)
 
-# tell all the trainers to take a step 
-fut = trainers.train.call(step=0)
+"""
+# have half of them say hello 
+hello_fut = actors.slice(cpus=slice(0, 3)).say_hello.call("world")
 
-# wait for all the trainers to finish 
-fut.get()
+# have half of them say goodbye
+bye_fut = actors.slice(cpus=slice(3, 4)).say_bye.call("world")
+
+try:
+    print(hello_fut.get())
+except:
+    print("couldn't say hello")
+    
+try:
+    print(bye_fut.get())
+except Exception:
+    print("got an exception saying bye")
+"""
