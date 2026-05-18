@@ -90,17 +90,17 @@ def main(model_id: str, output_dir: str):
     for prompt in SAMPLE_PROMPTS:
         messages  = [{"role": "user", "content": prompt}]
         input_ids = tokenizer.apply_chat_template(
-            messages, tokenize=True, add_generation_prompt=True, return_tensors="pt"
+            messages, tokenize=True, add_generation_prompt=True, return_tensors="pt", return_dict=True
         )
         with torch.no_grad():
             output_ids = model.generate(
-                input_ids,
+                **input_ids,
                 max_new_tokens=64,
                 do_sample=False,
                 pad_token_id=tokenizer.eos_token_id,
             )
         generated = tokenizer.decode(
-            output_ids[0][input_ids.shape[-1]:], skip_special_tokens=True
+            output_ids[0][input_ids["input_ids"].shape[-1]:], skip_special_tokens=True
         )
         print(f"\n  Prompt   : {prompt}")
         print(f"  Response : {generated.strip()}")
